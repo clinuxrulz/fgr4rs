@@ -1,5 +1,8 @@
 # Fine Grain Reactivity for Rust
 
+Based on:
+https://indepth.dev/posts/1269/finding-fine-grained-reactive-programming
+
 Example:
 ```
 fn main() {
