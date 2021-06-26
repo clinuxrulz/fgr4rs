@@ -1,4 +1,4 @@
-# Fine Grain Reactivity for Rust
+# Fine-grained Reactivity for Rust
 
 Based on:
 https://indepth.dev/posts/1269/finding-fine-grained-reactive-programming
