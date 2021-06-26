@@ -1,7 +1,8 @@
-use super::node::{NodeWithValue, NodeValRef, NodeValRefMut};
+use super::node::{HasNode, NodeWithValue, NodeValRef, NodeValRefMut};
+use std::cell::RefCell;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub struct Signal<A> {
     data: Rc<NodeWithValue<A>>,
@@ -17,9 +18,12 @@ impl<A> Clone for Signal<A> {
 
 impl<A:'static> Signal<A> {
     pub fn new(init_value: A) -> Signal<A> {
-        Signal {
-            data: Rc::new(NodeWithValue::new(init_value))
-        }
+        let this: Rc<RefCell<Option<Weak<dyn HasNode>>>> = Rc::new(RefCell::new(None));
+        let r = Signal {
+            data: Rc::new(NodeWithValue::new(this.clone(), init_value))
+        };
+        *(*this).borrow_mut() = Some(Rc::downgrade(&r.data) as Weak<dyn HasNode>);
+        r
     }
 
     pub fn read<'a>(&'a self) -> impl Deref<Target=A> + 'a {

@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 
 pub struct Node {
+    pub this: Rc<RefCell<Option<Weak<dyn HasNode>>>>,
     pub update_op: RefCell<Option<Box<dyn FnMut()>>>,
     pub visited: Cell<bool>,
     pub dirty: Cell<bool>,
@@ -16,13 +17,24 @@ pub trait HasNode {
 }
 
 impl Node {
-    pub fn new() -> Node {
+    pub fn new(this: Rc<RefCell<Option<Weak<dyn HasNode>>>>) -> Node {
         Node {
+            this,
             update_op: RefCell::new(None),
             visited: Cell::new(false),
             dirty: Cell::new(false),
             dependencies: RefCell::new(Vec::new()),
             dependents: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        let this = self.this.borrow();
+        let this = this.as_ref().unwrap();
+        for dependency in &*self.dependencies.borrow() {
+            dependency.node().dependents.borrow_mut().retain(|x| !x.ptr_eq(this));
         }
     }
 }
@@ -33,10 +45,10 @@ pub struct NodeWithValue<A> {
 }
 
 impl<A> NodeWithValue<A> {
-    pub fn new(value: A) -> NodeWithValue<A> {
+    pub fn new(this: Rc<RefCell<Option<Weak<dyn HasNode>>>>, value: A) -> NodeWithValue<A> {
         NodeWithValue {
             value: RefCell::new(Some(value)),
-            node: Node::new(),
+            node: Node::new(this),
         }
     }
 

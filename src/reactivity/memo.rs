@@ -18,7 +18,8 @@ impl<A> Clone for Memo<A> {
 
 impl<A:'static> Memo<A> {
     pub fn new<K:FnMut()->A+'static>(mut k: K) -> Memo<A> {
-        let node = Node::new();
+        let this: Rc<RefCell<Option<Weak<dyn HasNode>>>> = Rc::new(RefCell::new(None));
+        let node = Node::new(this.clone());
         let forward_ref: Rc<RefCell<Option<Weak<NodeWithValue<A>>>>> = Rc::new(RefCell::new(None));
         let mut update;
         {
@@ -42,6 +43,7 @@ impl<A:'static> Memo<A> {
         let r = Memo {
             data: Rc::new(NodeWithValue::new2(node)),
         };
+        *(*this).borrow_mut() = Some(Rc::downgrade(&r.data) as Weak<dyn HasNode>);
         *(*forward_ref).borrow_mut() = Some(Rc::downgrade(&r.data));
         *r.data.value.borrow_mut() = Some(update());
         let node_with_value = r.data.clone();
