@@ -106,9 +106,11 @@ pub fn update_node(node: Rc<dyn HasNode>) {
     let any_dirty_children = node.node().dependencies.borrow().iter().any(|child| child.node().dirty.get());
     if any_dirty_children {
         if let Some(ref mut update) = &mut *node.node().update_op.borrow_mut() {
-            update();
-            node.node().dirty.set(true);
-            clear_dirty_flag_at_end(Rc::downgrade(&node));
+            let changed = update();
+            if changed {
+                node.node().dirty.set(true);
+                clear_dirty_flag_at_end(Rc::downgrade(&node));
+            }
         }
     }
     if node.node().dirty.get() {

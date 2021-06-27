@@ -17,7 +17,15 @@ impl<A> Clone for Memo<A> {
 }
 
 impl<A:'static> Memo<A> {
-    pub fn new<K:FnMut()->A+'static>(mut k: K) -> Memo<A> {
+    pub fn new<K:FnMut()->A+'static>(k: K) -> Memo<A> {
+        Memo::new_calmed(k, |_, _| false)
+    }
+
+    pub fn new_calmed_eq<K:FnMut()->A+'static>(k: K) -> Memo<A> where A: PartialEq {
+        Memo::new_calmed(k, PartialEq::eq)
+    }
+
+    pub fn new_calmed<K:FnMut()->A+'static,EQ:FnMut(&A,&A)->bool+'static>(mut k: K, mut eq: EQ) -> Memo<A> {
         let this: Rc<RefCell<Option<Weak<dyn HasNode>>>> = Rc::new(RefCell::new(None));
         let node = Node::new(this.clone());
         let forward_ref: Rc<RefCell<Option<Weak<NodeWithValue<A>>>>> = Rc::new(RefCell::new(None));
@@ -25,7 +33,7 @@ impl<A:'static> Memo<A> {
         {
             let forward_ref = forward_ref.clone();
             update = move || {
-                let node = forward_ref.borrow().as_ref().unwrap().upgrade().unwrap();
+                let node = (*forward_ref).borrow().as_ref().unwrap().upgrade().unwrap();
                 let weak_node = Rc::downgrade(&node) as Weak<dyn HasNode>;
                 for dependency in &*node.node.dependencies.borrow() {
                     dependency.node().dependents.borrow_mut().retain(|x| !x.ptr_eq(&weak_node));
@@ -49,7 +57,11 @@ impl<A:'static> Memo<A> {
         let node_with_value = r.data.clone();
         *r.data.node.update_op.borrow_mut() = Some(Box::new(move || {
             let r = update();
-            *node_with_value.value.borrow_mut() = Some(r);
+            let changed = !eq(&*node_with_value.value.borrow().as_ref().unwrap(), &r);
+            if changed {
+                *node_with_value.value.borrow_mut() = Some(r);
+            }
+            changed
         }));
         r
     }

@@ -5,7 +5,7 @@ use std::rc::{Rc, Weak};
 
 pub struct Node {
     pub this: Rc<RefCell<Option<Weak<dyn HasNode>>>>,
-    pub update_op: RefCell<Option<Box<dyn FnMut()>>>,
+    pub update_op: RefCell<Option<Box<dyn FnMut()->bool>>>,
     pub visited: Cell<bool>,
     pub dirty: Cell<bool>,
     pub dependencies: RefCell<Vec<Rc<dyn HasNode>>>,

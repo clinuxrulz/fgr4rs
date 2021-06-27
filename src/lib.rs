@@ -19,3 +19,17 @@ fn test_effect() {
         *b.write() = 12;
     });
 }
+
+#[test]
+fn test_calmed() {
+    let mut a: Signal<i32> = Signal::new(1);
+    let b;
+    {
+        let a = a.clone();
+        b = Memo::new_calmed_eq(move || *a.read());
+    }
+    let _effect = Effect::new(move || println!("{}", *b.read()));
+    *a.write() = 2;
+    *a.write() = 2;
+    *a.write() = 3;
+}
