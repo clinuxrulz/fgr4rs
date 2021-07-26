@@ -16,6 +16,10 @@ impl<A> Clone for Signal<A> {
     }
 }
 
+pub fn signal_data<A>(signal: &Signal<A>) -> &Rc<NodeWithValue<A>> {
+    &signal.data
+}
+
 impl<A:'static> Signal<A> {
     pub fn new(init_value: A) -> Signal<A> {
         let this: Rc<RefCell<Option<Weak<dyn HasNode>>>> = Rc::new(RefCell::new(None));
@@ -30,7 +34,7 @@ impl<A:'static> Signal<A> {
         NodeValRef::new(&*self.data, self.data.clone())
     }
 
-    pub fn write<'a>(&'a mut self) -> impl DerefMut<Target=A> + 'a {
+    pub fn write<'a>(&'a self) -> impl DerefMut<Target=A> + 'a {
         NodeValRefMut::new(&*self.data, self.data.clone())
     }
 }

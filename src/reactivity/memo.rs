@@ -1,3 +1,5 @@
+use super::Signal;
+use super::signal::signal_data;
 use super::context::in_node;
 use super::node::{HasNode, Node, NodeWithValue, NodeValRef};
 use std::cell::RefCell;
@@ -12,6 +14,22 @@ impl<A> Clone for Memo<A> {
     fn clone(&self) -> Self {
         Memo {
             data: self.data.clone(),
+        }
+    }
+}
+
+impl<A> From<Signal<A>> for Memo<A> {
+    fn from(x: Signal<A>) -> Self {
+        Memo {
+            data: signal_data(&x).clone(),
+        }
+    }
+}
+
+impl<A> From<&Signal<A>> for Memo<A> {
+    fn from(x: &Signal<A>) -> Self {
+        Memo {
+            data: signal_data(x).clone(),
         }
     }
 }
@@ -54,8 +72,9 @@ impl<A:'static> Memo<A> {
         *(*this).borrow_mut() = Some(Rc::downgrade(&r.data) as Weak<dyn HasNode>);
         *(*forward_ref).borrow_mut() = Some(Rc::downgrade(&r.data));
         *r.data.value.borrow_mut() = Some(update());
-        let node_with_value = r.data.clone();
+        let node_with_value = Rc::downgrade(&r.data);
         *r.data.node.update_op.borrow_mut() = Some(Box::new(move || {
+            let node_with_value = node_with_value.upgrade().unwrap();
             let r = update();
             let changed = !eq(&*node_with_value.value.borrow().as_ref().unwrap(), &r);
             if changed {

@@ -1,4 +1,4 @@
-use crate::Memo;
+use super::Memo;
 
 pub struct Effect {
     data: Memo<()>
@@ -17,5 +17,13 @@ impl Effect {
         Effect {
             data: Memo::new(k),
         }
+    }
+
+    pub fn merge(effects: Vec<Effect>) -> Effect {
+        Effect::new(move || {
+            for effect in &effects {
+                let _ = *effect.data.read();
+            }
+        })
     }
 }

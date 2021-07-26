@@ -25,3 +25,14 @@ fn test_calmed() {
     *a.write() = 2;
     *a.write() = 3;
 }
+
+#[test]
+fn test_memo_mem() {
+    let a = Signal::new(1);
+    {
+        let _e = Effect::new(crate::cloned!((a) => move || println!("{}", *a.read())));
+        *a.write() = 2;
+    }
+    *a.write() = 3;
+    // here should only output 1 2
+}
