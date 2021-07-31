@@ -16,6 +16,12 @@ pub trait HasNode {
     fn node(&self) -> &Node;
 }
 
+impl HasNode for Node {
+    fn node(&self) -> &Node {
+        self
+    }
+}
+
 impl Node {
     pub fn new(this: Rc<RefCell<Option<Weak<dyn HasNode>>>>) -> Node {
         Node {

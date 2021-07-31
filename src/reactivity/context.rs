@@ -8,6 +8,7 @@ pub struct Context {
     pub to_be_updated: RefCell<Vec<Weak<dyn HasNode>>>,
     pub reset_visited_flags: RefCell<Vec<Weak<dyn HasNode>>>,
     pub clear_dirty_flags: RefCell<Vec<Weak<dyn HasNode>>>,
+    pub effects: RefCell<Vec<Rc<RefCell<Box<dyn FnMut()>>>>>,
 }
 
 thread_local!(static CTX: Context =
@@ -17,6 +18,7 @@ thread_local!(static CTX: Context =
         to_be_updated: RefCell::new(Vec::new()),
         reset_visited_flags: RefCell::new(Vec::new()),
         clear_dirty_flags: RefCell::new(Vec::new()),
+        effects: RefCell::new(Vec::new()),
     }
 );
 
@@ -61,31 +63,41 @@ pub fn batch<R,K:FnOnce()->R>(k: K) -> R {
 }
 
 pub fn propergate() {
-    while let Some(weak_node) = CTX.with(|ctx| ctx.to_be_updated.borrow_mut().pop()) {
-        if let Some(node) = weak_node.upgrade() {
-            update_node(node);
+    let mut effects = Vec::new();
+    loop {
+        while let Some(weak_node) = CTX.with(|ctx| ctx.to_be_updated.borrow_mut().pop()) {
+            if let Some(node) = weak_node.upgrade() {
+                update_node(node);
+            }
+        }
+        CTX.with(|ctx| {
+            {
+                let mut reset_visited_flags = ctx.reset_visited_flags.borrow_mut();
+                for weak_node in &*reset_visited_flags {
+                    if let Some(node) = weak_node.upgrade() {
+                        node.node().visited.set(false);
+                    }
+                }
+                reset_visited_flags.clear();
+            }
+            {
+                let mut clear_dirty_flags = ctx.clear_dirty_flags.borrow_mut();
+                for weak_node in &*clear_dirty_flags {
+                    if let Some(node) = weak_node.upgrade() {
+                        node.node().dirty.set(false);
+                    }
+                }
+                clear_dirty_flags.clear();
+            }
+            std::mem::swap(&mut effects, &mut ctx.effects.borrow_mut());
+        });
+        if effects.is_empty() {
+            break;
+        }
+        for effect in effects.drain(0..) {
+            effect.borrow_mut()();
         }
     }
-    CTX.with(|ctx| {
-        {
-            let mut reset_visited_flags = ctx.reset_visited_flags.borrow_mut();
-            for weak_node in &*reset_visited_flags {
-                if let Some(node) = weak_node.upgrade() {
-                    node.node().visited.set(false);
-                }
-            }
-            reset_visited_flags.clear();
-        }
-        {
-            let mut clear_dirty_flags = ctx.clear_dirty_flags.borrow_mut();
-            for weak_node in &*clear_dirty_flags {
-                if let Some(node) = weak_node.upgrade() {
-                    node.node().dirty.set(false);
-                }
-            }
-            clear_dirty_flags.clear();
-        }
-    });
 }
 
 pub fn update_node(node: Rc<dyn HasNode>) {
@@ -131,3 +143,8 @@ pub fn reset_visited_flag_at_end(node: Weak<dyn HasNode>) {
 pub fn clear_dirty_flag_at_end(node: Weak<dyn HasNode>) {
     CTX.with(|ctx| ctx.clear_dirty_flags.borrow_mut().push(node));
 }
+
+pub fn push_effect(effect: Rc<RefCell<Box<dyn FnMut()>>>) {
+    CTX.with(|ctx| ctx.effects.borrow_mut().push(effect));
+}
+
