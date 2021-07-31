@@ -3,36 +3,48 @@ mod reactivity;
 
 pub use reactivity::{batch, Effect, Memo, Signal};
 
+#[cfg(test)]
+use std::cell::RefCell;
+
+#[cfg(test)]
+use std::rc::Rc;
+
 #[test]
 fn test_effect() {
-    let mut a = Signal::new(1);
-    let mut b = Signal::new(2);
+    let out = Rc::new(RefCell::new(Vec::new()));
+    let a = Signal::new(1);
+    let b = Signal::new(2);
     let c = Memo::new(cloned!((a, b) => move || *a.read() + *b.read()));
-    let _effect = Effect::new(move || println!("{}", *c.read()));
+    let _effect = Effect::new(cloned!((out) => move || out.borrow_mut().push(*c.read())));
     *a.write() = 3;
     batch(|| {
         *a.write() = 10;
         *b.write() = 12;
     });
+    assert_eq!(*out.borrow(), vec![3, 5, 22]);
 }
 
 #[test]
 fn test_calmed() {
-    let mut a: Signal<i32> = Signal::new(1);
+    let out = Rc::new(RefCell::new(Vec::new()));
+    let a: Signal<i32> = Signal::new(1);
     let b = Memo::new_calmed_eq(cloned!((a) => move || *a.read()));
-    let _effect = Effect::new(move || println!("{}", *b.read()));
+    let _effect = Effect::new(cloned!((out) =>move || out.borrow_mut().push(*b.read())));
     *a.write() = 2;
     *a.write() = 2;
     *a.write() = 3;
+    assert_eq!(*out.borrow(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_memo_mem() {
+    let out = Rc::new(RefCell::new(Vec::new()));
     let a = Signal::new(1);
     {
-        let _e = Effect::new(crate::cloned!((a) => move || println!("{}", *a.read())));
+        let _e = Effect::new(cloned!((a, out) => move || out.borrow_mut().push(*a.read())));
         *a.write() = 2;
     }
     *a.write() = 3;
     // here should only output 1 2
+    assert_eq!(*out.borrow(), vec![1, 2]);
 }
