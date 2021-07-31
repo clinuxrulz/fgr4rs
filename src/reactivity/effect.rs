@@ -23,6 +23,7 @@ impl Effect {
             let node = Rc::new(Node::new(this.clone()));
             let this2 = Rc::downgrade(&node);
             *this.borrow_mut() = Some(this2.clone());
+            let this3 = this2.clone();
             let k2 = Rc::new(RefCell::new(Box::new(move || {
                 let node = this2.upgrade().unwrap();
                 let weak_node = Rc::downgrade(&node) as Weak<dyn HasNode>;
@@ -37,9 +38,23 @@ impl Effect {
                     }
                 );
             }) as Box<dyn FnMut()>));
-            push_effect(k2.clone());
+            {
+                let node = node.clone();
+                let k2 = k2.clone();
+                let k3 = Rc::new(RefCell::new(Box::new(move || {
+                    let _ = &node;
+                    k2.borrow_mut()();
+                }) as Box<dyn FnMut()>));
+                push_effect(k3);
+            }
             *node.update_op.borrow_mut() = Some(Box::new(move || {
-                push_effect(k2.clone());
+                let node = this3.upgrade().unwrap();
+                let k2 = k2.clone();
+                let k3 = Rc::new(RefCell::new(Box::new(move || {
+                    let _ = &node;
+                    k2.borrow_mut()();
+                }) as Box<dyn FnMut()>));
+                push_effect(k3);
                 false
             }));
             Effect {

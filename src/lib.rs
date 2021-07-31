@@ -48,3 +48,18 @@ fn test_memo_mem() {
     // here should only output 1 2
     assert_eq!(*out.borrow(), vec![1, 2]);
 }
+
+#[test]
+fn test_write_sig_in_effect() {
+    let out = Rc::new(RefCell::new(Vec::new()));
+    let a = Signal::new(1);
+    let b = Signal::new(0);
+    let _e1 = Effect::new(cloned!((a,b) => move || *b.write() = *a.read() * 2));
+    let _e2 = Effect::new(cloned!((out,b) => move || out.borrow_mut().push(*b.read())));
+    batch(move || {
+        *a.write() = 2;
+        *b.write() = 3;
+    });
+    assert_eq!(*out.borrow(), vec![2, 3, 4]);
+}
+
