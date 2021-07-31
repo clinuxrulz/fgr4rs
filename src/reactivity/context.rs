@@ -64,6 +64,7 @@ pub fn batch<R,K:FnOnce()->R>(k: K) -> R {
 
 pub fn propergate() {
     let mut effects = Vec::new();
+    CTX.with(|ctx| ctx.transaction_depth.set(ctx.transaction_depth.get() + 1));
     loop {
         while let Some(weak_node) = CTX.with(|ctx| ctx.to_be_updated.borrow_mut().pop()) {
             if let Some(node) = weak_node.upgrade() {
@@ -98,6 +99,7 @@ pub fn propergate() {
             effect.borrow_mut()();
         }
     }
+    CTX.with(|ctx| ctx.transaction_depth.set(ctx.transaction_depth.get() - 1));
 }
 
 pub fn update_node(node: Rc<dyn HasNode>) {
